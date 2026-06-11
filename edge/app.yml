@@ -1,0 +1,10 @@
+app: sourdough-timeline-calculator
+routes:
+  - name: web
+    service: sourdough-timeline-web
+    port: 4173
+    dev_hostnames:
+      - sourdough.localhost
+      - sourdough-timeline.localhost
+    prod_hostnames:
+      - sourdough.lambiclabs.com

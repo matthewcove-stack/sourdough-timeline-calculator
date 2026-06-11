@@ -1,0 +1,25 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+    environment:
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-4173}
+      BASE_URL: ${BASE_URL:-http://sourdough.localhost}
+      PROXY_BASE_PATH: ${PROXY_BASE_PATH:-/}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+    expose:
+      - "${APP_PORT:-4173}"
+    networks:
+      internal: {}
+      edge:
+        aliases:
+          - sourdough-timeline-web
+
+networks:
+  internal: {}
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-edge}
