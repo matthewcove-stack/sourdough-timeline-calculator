@@ -197,7 +197,6 @@ The current schedule is saved in browser `localStorage`. User defaults and advan
 - Copy schedule as plain text
 - Shareable plan URLs
 - Print-friendly schedule output
-- Named presets for common planning conditions
 
 ## Roadmap
 

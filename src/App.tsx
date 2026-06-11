@@ -24,11 +24,10 @@ import {
   HOUR_MINUTES,
   moveToPreviousWorkingTime,
   normaliseScheduleTime,
-  scheduleTimeFromDayAndClock,
   snapScheduleTime,
   sortPointsByTime
 } from './lib/timelineUtils';
-import type { ExpansionPoint, ScheduleSettings, ScheduleTime, WorkingHours } from './types/schedule';
+import type { ExpansionPoint, ScheduleSettings, ScheduleTime } from './types/schedule';
 
 const STORAGE_KEY = 'sourdough-timeline-calculator:v2';
 const SHARE_PARAM = 'plan';
@@ -67,20 +66,6 @@ function normalisePoint(value: unknown, fallbackTime: ScheduleTime): ExpansionPo
 
 function numberSetting(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function defaultRangePatch(workingHours: WorkingHours): Pick<ScheduleSettings, 'timelineStart' | 'timelineEnd' | 'finalReadyAt'> {
-  const range = getDefaultTimelineRange(workingHours);
-
-  return {
-    timelineStart: range.timelineStart,
-    timelineEnd: range.timelineEnd,
-    finalReadyAt: range.timelineEnd
-  };
-}
-
-function dayTime(dayIndex: number, clockTime: string, fallback: ScheduleTime): ScheduleTime {
-  return scheduleTimeFromDayAndClock(dayIndex, clockTime) ?? fallback;
 }
 
 function normaliseSchedule(value: unknown, defaults: SavedSchedule): SavedSchedule | null {
@@ -260,41 +245,6 @@ export default function App() {
     updateSettings({ timelineStart: start, timelineEnd: end });
   }
 
-  function applyPreset(presetId: string) {
-    const weekdayHours = { start: '06:00', end: '20:00' };
-    const overnightHours = { start: '20:00', end: '06:00' };
-
-    const presets: Record<string, Partial<ScheduleSettings>> = {
-      weekday: {
-        workingHours: weekdayHours,
-        speedCorrection: 1,
-        ...defaultRangePatch(weekdayHours)
-      },
-      overnight: {
-        workingHours: overnightHours,
-        speedCorrection: 1,
-        ...defaultRangePatch(overnightHours)
-      },
-      warm: {
-        workingHours: weekdayHours,
-        minTemperature: 18,
-        maxTemperature: 28,
-        speedCorrection: 1.15,
-        finalReadyAt: dayTime(1, '13:00', settings.finalReadyAt)
-      },
-      slow: {
-        workingHours: weekdayHours,
-        speedCorrection: 0.75,
-        minExpansionRatio: 2,
-        maxExpansionRatio: 4,
-        finalReadyAt: dayTime(1, '13:00', settings.finalReadyAt)
-      }
-    };
-
-    updateSettings(presets[presetId] ?? {});
-    setActionStatus('Preset applied.');
-  }
-
   function fitTimelineToPlan() {
     const firstFeed = orderedPoints[0]?.time ?? settings.timelineStart;
     updateTimelineRange(Math.max(0, addMinutes(firstFeed, -120)), addMinutes(settings.finalReadyAt, 120));
@@ -422,7 +372,6 @@ export default function App() {
           onSettingsChange={updateSettings}
           onFitPlan={fitTwoFeedPlan}
           onReset={resetSchedule}
-          onApplyPreset={applyPreset}
           savedDefaultsApplied={savedDefaultsApplied}
           setupError={setupError}
         />

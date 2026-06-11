@@ -7,17 +7,9 @@ interface QuickSetupProps {
   onSettingsChange: (patch: Partial<ScheduleSettings>) => void;
   onFitPlan: () => void;
   onReset: () => void;
-  onApplyPreset: (presetId: string) => void;
   savedDefaultsApplied: boolean;
   setupError: string;
 }
-
-const presets = [
-  { id: 'weekday', label: 'Weekday bake' },
-  { id: 'overnight', label: 'Overnight bake' },
-  { id: 'warm', label: 'Warm kitchen' },
-  { id: 'slow', label: 'Slow starter' }
-];
 
 function numberValue(value: string, fallback: number): number {
   const parsed = Number(value);
@@ -29,7 +21,6 @@ export function QuickSetup({
   onSettingsChange,
   onFitPlan,
   onReset,
-  onApplyPreset,
   savedDefaultsApplied,
   setupError
 }: QuickSetupProps) {
@@ -97,22 +88,6 @@ export function QuickSetup({
             snapMinutes={settings.snapMinutes}
             onChange={finalReadyAt => onSettingsChange({ finalReadyAt })}
           />
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <p className="mb-2 text-sm font-semibold text-slate-800">Presets</p>
-        <div className="flex flex-wrap gap-2">
-          {presets.map(preset => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => onApplyPreset(preset.id)}
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-800"
-            >
-              {preset.label}
-            </button>
-          ))}
         </div>
       </div>
 
