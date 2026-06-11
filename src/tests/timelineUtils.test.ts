@@ -6,8 +6,8 @@ import {
   getDefaultTimelineRange,
   getWorkingHourBands,
   isWithinWorkingHours,
-  legacyDateTimeToScheduleTime,
   moveToPreviousWorkingTime,
+  normaliseScheduleTime,
   snapScheduleTime
 } from '../lib/timelineUtils';
 
@@ -60,11 +60,11 @@ describe('timeline utilities', () => {
     expect(range.timelineEnd).toBe(2 * day + 60);
   });
 
-  it('formats generic schedule times without calendar dates', () => {
+  it('formats generic schedule times with day-relative labels', () => {
     expect(formatScheduleTime(day + 13 * 60)).toBe('Day 2 13:00');
   });
 
-  it('can migrate old saved date-time values into generic schedule times', () => {
-    expect(legacyDateTimeToScheduleTime('2026-06-11T06:30', '2026-06-10T08:00')).toBe(day + 6 * 60 + 30);
+  it('ignores non-numeric schedule times', () => {
+    expect(normaliseScheduleTime('10:00', day + 6 * 60)).toBe(day + 6 * 60);
   });
 });

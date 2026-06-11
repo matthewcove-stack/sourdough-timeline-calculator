@@ -3,7 +3,7 @@ import { formatScheduleTime, formatTime, schedulePlainText } from '../lib/format
 import type { FeedStage, SchedulePlan } from '../types/schedule';
 
 describe('generic schedule formatting', () => {
-  it('formats clock times without dates', () => {
+  it('formats clock times without extra context', () => {
     expect(formatTime(6 * 60)).toBe('06:00');
   });
 

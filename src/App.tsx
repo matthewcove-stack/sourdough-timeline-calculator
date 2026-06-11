@@ -30,7 +30,7 @@ import {
 } from './lib/timelineUtils';
 import type { ExpansionPoint, ScheduleSettings, ScheduleTime, WorkingHours } from './types/schedule';
 
-const STORAGE_KEY = 'sourdough-timeline-calculator:v1';
+const STORAGE_KEY = 'sourdough-timeline-calculator:v2';
 const SHARE_PARAM = 'plan';
 const SUPPORT_URL = 'https://buymeacoffee.com/lambic';
 
@@ -49,7 +49,7 @@ function newPoint(time: ScheduleTime): ExpansionPoint {
   };
 }
 
-function normalisePoint(value: unknown, fallbackTime: ScheduleTime, baseDateValue?: string): ExpansionPoint | null {
+function normalisePoint(value: unknown, fallbackTime: ScheduleTime): ExpansionPoint | null {
   if (typeof value !== 'object' || value == null) {
     return null;
   }
@@ -58,7 +58,7 @@ function normalisePoint(value: unknown, fallbackTime: ScheduleTime, baseDateValu
 
   return {
     id: typeof source.id === 'string' && source.id ? source.id : crypto.randomUUID(),
-    time: normaliseScheduleTime(source.time, fallbackTime, baseDateValue),
+    time: normaliseScheduleTime(source.time, fallbackTime),
     notes: typeof source.notes === 'string' ? source.notes : '',
     lockedExpansionRatio: typeof source.lockedExpansionRatio === 'number' ? source.lockedExpansionRatio : null,
     lockedTemperature: typeof source.lockedTemperature === 'number' ? source.lockedTemperature : null
@@ -91,15 +91,14 @@ function normaliseSchedule(value: unknown, defaults: SavedSchedule): SavedSchedu
   const source = value as Partial<SavedSchedule>;
   const rawSettings = typeof source.settings === 'object' && source.settings != null ? source.settings : {};
   const settingsSource = rawSettings as Partial<ScheduleSettings>;
-  const legacyBaseDate = typeof settingsSource.timelineStart === 'string' ? settingsSource.timelineStart : undefined;
 
   const settings: ScheduleSettings = {
     ...defaults.settings,
     initialAmount: numberSetting(settingsSource.initialAmount, defaults.settings.initialAmount),
     finalAmount: numberSetting(settingsSource.finalAmount, defaults.settings.finalAmount),
-    finalReadyAt: normaliseScheduleTime(settingsSource.finalReadyAt, defaults.settings.finalReadyAt, legacyBaseDate),
-    timelineStart: normaliseScheduleTime(settingsSource.timelineStart, defaults.settings.timelineStart, legacyBaseDate),
-    timelineEnd: normaliseScheduleTime(settingsSource.timelineEnd, defaults.settings.timelineEnd, legacyBaseDate),
+    finalReadyAt: normaliseScheduleTime(settingsSource.finalReadyAt, defaults.settings.finalReadyAt),
+    timelineStart: normaliseScheduleTime(settingsSource.timelineStart, defaults.settings.timelineStart),
+    timelineEnd: normaliseScheduleTime(settingsSource.timelineEnd, defaults.settings.timelineEnd),
     hydrationPercent: numberSetting(settingsSource.hydrationPercent, defaults.settings.hydrationPercent),
     minExpansionRatio: numberSetting(settingsSource.minExpansionRatio, defaults.settings.minExpansionRatio),
     maxExpansionRatio: numberSetting(settingsSource.maxExpansionRatio, defaults.settings.maxExpansionRatio),
@@ -113,7 +112,7 @@ function normaliseSchedule(value: unknown, defaults: SavedSchedule): SavedSchedu
   const points = Array.isArray(source.points)
     ? source.points
         .map((point, index) =>
-          normalisePoint(point, defaults.points[index]?.time ?? settings.timelineStart, legacyBaseDate)
+          normalisePoint(point, defaults.points[index]?.time ?? settings.timelineStart)
         )
         .filter((point): point is ExpansionPoint => point != null)
     : defaults.points;

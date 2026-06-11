@@ -2,7 +2,7 @@
 
 A mobile-first web prototype for planning sourdough starter and levain builds on a visual timeline.
 
-The app lets a baker enter the initial starter amount, final starter amount, and generic final ready time, then generate a two-feed plan or adjust feed points manually. Schedules are day-relative rather than tied to a calendar date, so output uses labels such as `Day 1 18:00` and `Day 2 06:00`. Expansion/feed points can be added, edited, or dragged on the timeline. The schedule recalculates flour, water, total-after-feeding amounts, per-stage total expansion ratio, target mix/hold temperature, and warnings.
+The app lets a baker enter the initial starter amount, final starter amount, and generic final ready time, then generate a two-feed plan or adjust feed points manually. Schedules are day-relative time spans, so output uses labels such as `Day 1 18:00` and `Day 2 06:00`. Expansion/feed points can be added, edited, or dragged on the timeline. The schedule recalculates flour, water, total-after-feeding amounts, per-stage total expansion ratio, target mix/hold temperature, and warnings.
 
 Advanced configuration is collapsed by default and includes hydration, snap interval, safe expansion range, practical temperature range, starter speed correction, visible timeline range, and one repeating working-hours window.
 

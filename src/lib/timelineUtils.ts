@@ -2,8 +2,6 @@ import type { ExpansionPoint, ScheduleTime, TimelineBand, TimelineBandKind, Work
 
 export const MINUTES_PER_DAY = 24 * 60;
 export const HOUR_MINUTES = 60;
-export const MINUTE_MS = 60 * 1000;
-export const HOUR_MS = HOUR_MINUTES * MINUTE_MS;
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -235,36 +233,9 @@ export function moveToPreviousWorkingTime(
   return snapScheduleTime(value, incrementMinutes);
 }
 
-export function legacyDateTimeToScheduleTime(value: string, baseValue?: string): ScheduleTime | null {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  const baseMatch = baseValue?.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-
-  if (!match) {
-    return null;
-  }
-
-  const [, year, month, day, hours, minutes] = match.map(Number);
-  const baseYear = baseMatch ? Number(baseMatch[1]) : year;
-  const baseMonth = baseMatch ? Number(baseMatch[2]) : month;
-  const baseDay = baseMatch ? Number(baseMatch[3]) : day;
-  const currentDate = Date.UTC(year, month - 1, day);
-  const baseDate = Date.UTC(baseYear, baseMonth - 1, baseDay);
-  const dayOffset = Math.round((currentDate - baseDate) / (MINUTES_PER_DAY * MINUTE_MS));
-
-  return dayOffset * MINUTES_PER_DAY + hours * HOUR_MINUTES + minutes;
-}
-
-export function normaliseScheduleTime(value: unknown, fallback: ScheduleTime, baseValue?: string): ScheduleTime {
+export function normaliseScheduleTime(value: unknown, fallback: ScheduleTime): ScheduleTime {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
-  }
-
-  if (typeof value === 'string') {
-    const legacyValue = legacyDateTimeToScheduleTime(value, baseValue);
-
-    if (legacyValue != null) {
-      return legacyValue;
-    }
   }
 
   return fallback;
