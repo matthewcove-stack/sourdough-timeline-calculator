@@ -29,6 +29,9 @@ import {
 } from './lib/timelineUtils';
 import type { ExpansionPoint, ScheduleSettings, ScheduleTime } from './types/schedule';
 
+const CORE_MODE=import.meta.env.VITE_BAKERY_CORE==='true';
+const IMPORT_REQUESTED=typeof window!=='undefined'&&(location.hash.startsWith('#import=')||new URLSearchParams(location.search).has('plan'));
+const CORE_ORIGIN='https://bakery.lambiclabs.com';
 const STORAGE_KEY = 'sourdough-timeline-calculator:v2';
 const SHARE_PARAM = 'plan';
 const SUPPORT_URL = 'https://buymeacoffee.com/lambic';
@@ -125,7 +128,7 @@ function loadSharedSchedule(defaults: SavedSchedule): SavedSchedule | null {
   }
 }
 
-function createDefaultSchedule(preferences = readSchedulePreferences()): SavedSchedule {
+function createDefaultSchedule(preferences = CORE_MODE?{}:readSchedulePreferences()): SavedSchedule {
   const workingHours = normaliseWorkingHours(preferences.workingHours ?? defaultWorkingHours());
   const visibleRange = getDefaultTimelineRange(workingHours);
   const firstFeed = snapScheduleTime(
@@ -160,13 +163,15 @@ function createDefaultSchedule(preferences = readSchedulePreferences()): SavedSc
 
 function loadInitialSchedule(): SavedSchedule {
   const defaults = createDefaultSchedule();
-  const shared = loadSharedSchedule(defaults);
+  let imported:SavedSchedule|null=null;
+  if(typeof window!=='undefined'&&location.hash.startsWith('#import=')){try{imported=normaliseSchedule(decodeJsonFromUrl(location.hash.slice(8)),defaults);}catch{}history.replaceState(null,'',location.pathname+location.search);}
+  const shared = imported??loadSharedSchedule(defaults);
 
   if (shared) {
     return shared;
   }
 
-  if (typeof localStorage === 'undefined') {
+  if (CORE_MODE || typeof localStorage === 'undefined') {
     return defaults;
   }
 
@@ -189,15 +194,25 @@ export default function App() {
   const [copyStatus, setCopyStatus] = useState('');
   const [setupError, setSetupError] = useState('');
   const [actionStatus, setActionStatus] = useState('');
-  const [savedDefaultsApplied] = useState(() => hasSavedSchedulePreferences());
+  const [savedDefaultsApplied] = useState(() => !CORE_MODE&&hasSavedSchedulePreferences());
+  const [cloudReady,setCloudReady]=useState(!CORE_MODE),[cloudVersion,setCloudVersion]=useState(0),[cloudBakery,setCloudBakery]=useState(''),[cloudCsrf,setCloudCsrf]=useState(''),[cloudStatus,setCloudStatus]=useState(''),[saving,setSaving]=useState(false),[cloudConflict,setCloudConflict]=useState(false),[lastSavedPlan,setLastSavedPlan]=useState('');
+  const [importedPlan]=useState(IMPORT_REQUESTED);
+  const [unsavedBackup,setUnsavedBackup]=useState<SavedSchedule|null>(null);
 
   const orderedPoints = useMemo(() => sortPointsByTime(points), [points]);
   const plan = useMemo(() => buildSchedulePlan(settings, orderedPoints), [settings, orderedPoints]);
 
   useEffect(() => {
+    if(CORE_MODE)return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ settings, points: orderedPoints }));
     writeSchedulePreferences(settings);
   }, [settings, orderedPoints]);
+
+  useEffect(()=>{if(!CORE_MODE)return;let active=true;(async()=>{try{const meResponse=await fetch('/api/core/me');const me=await meResponse.json();if(!me.user){location.assign('/?next=starter');return;}const response=await fetch('/api/core/state/starter');const saved=await response.json();if(!response.ok)throw Error(saved.error||'Cannot load your bakery plan.');if(!active)return;setCloudCsrf(me.csrf);setCloudBakery(saved.bakeryId);setCloudVersion(saved.version);const restored=normaliseSchedule(saved.data,createDefaultSchedule({}));setLastSavedPlan(JSON.stringify(restored||savedSchedule));if(restored&&!importedPlan){setSettings(restored.settings);setPoints(restored.points);}setCloudStatus(importedPlan?'Imported plan ready to review. Save it when you are happy.':restored?'Loaded the bakery’s saved plan.':'No saved plan yet. Make a plan and save it to your bakery.');setCloudReady(true);}catch(e){if(active)setCloudStatus(e instanceof Error?e.message:'Could not load saved plan.');}})();return()=>{active=false;};},[]);
+  useEffect(()=>{if(!CORE_MODE)return;document.title='Starter planner · Bakery Management';const protect=(event:BeforeUnloadEvent)=>{if(cloudReady&&JSON.stringify({settings,points:orderedPoints})!==lastSavedPlan){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[cloudReady,settings,orderedPoints,lastSavedPlan]);
+  async function saveCloud(){setSaving(true);try{const response=await fetch('/api/core/state/starter',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':cloudCsrf},body:JSON.stringify({bakeryId:cloudBakery,version:cloudVersion,data:{settings,points:orderedPoints}})});const result=await response.json();if(!response.ok){if(response.status===409)setCloudConflict(true);throw Error(result.error||'Could not save. Your draft is still here.');}setCloudVersion(result.version);setLastSavedPlan(JSON.stringify({settings,points:orderedPoints}));setCloudConflict(false);setCloudStatus('Saved to your bakery. Available to your team and on other devices.');}catch(e){setCloudStatus(e instanceof Error?e.message:'Could not save. Your draft is still here.');}finally{setSaving(false);}}
+  async function loadLatest(){try{const response=await fetch('/api/core/state/starter');const saved=await response.json();if(!response.ok)throw Error(saved.error);const restored=normaliseSchedule(saved.data,createDefaultSchedule({}));if(!restored)throw Error('No saved plan is available.');setUnsavedBackup({settings,points:orderedPoints});setSettings(restored.settings);setPoints(restored.points);setCloudVersion(saved.version);setCloudBakery(saved.bakeryId);setLastSavedPlan(JSON.stringify(restored));setCloudConflict(false);setCloudStatus('Loaded the latest saved plan. Your previous draft can still be restored.');}catch(e){setCloudStatus(e instanceof Error?e.message:'Could not load the saved plan.');}}
+  function openBakery(){const url=new URL('/starter',CORE_ORIGIN);url.hash='import='+encodeJsonForUrl({settings,points:orderedPoints});location.assign(url.toString());}
 
   function updateSettings(patch: Partial<ScheduleSettings>) {
     setSetupError('');
@@ -345,6 +360,7 @@ export default function App() {
     setActionStatus('Feeding plan generated.');
   }
 
+  if(CORE_MODE&&!cloudReady)return <main className="mx-auto max-w-xl p-6"><h1 className="text-2xl font-bold">Starter planner</h1><p role="status">{cloudStatus||'Loading your bakery plan…'}</p><button className="mt-4 rounded-md border px-4 py-3" onClick={()=>location.reload()}>Retry</button><a className="ml-4 underline" href="/">Back to bakery</a></main>;
   return (
     <main className="min-h-screen bg-[#f6f8f5] px-3 pb-24 pt-4 text-slate-950 sm:px-6 sm:pb-4 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -352,9 +368,9 @@ export default function App() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-normal text-emerald-800">Lambic Labs</p>
-              <h1 className="text-2xl font-bold text-slate-950">Sourdough Timeline Calculator</h1>
+              <h1 className="text-2xl font-bold text-slate-950">{CORE_MODE?'Starter planner':'Sourdough Timeline Calculator'}</h1>
             </div>
-            <a
+            {!CORE_MODE&&<a
               href={SUPPORT_URL}
               target="_blank"
               rel="noreferrer"
@@ -363,11 +379,13 @@ export default function App() {
             >
               <Coffee className="h-4 w-4" aria-hidden="true" />
               Support this work
-            </a>
+            </a>}
           </div>
         </header>
 
-        <QuickSetup
+        {CORE_MODE?<section className="rounded-lg border border-emerald-200 bg-white p-4 print:hidden" aria-label="Saved bakery plan"><p role="status">{cloudStatus||'Loading your bakery plan…'}</p><div className="mt-3 flex flex-wrap gap-3"><button className="rounded-md bg-emerald-800 px-4 py-3 font-semibold text-white disabled:opacity-50" disabled={!cloudReady||saving||cloudConflict} onClick={saveCloud}>{saving?'Saving…':'Save plan to bakery'}</button>{cloudConflict&&<button className="rounded-md border px-4 py-3" onClick={loadLatest}>Load latest saved plan</button>}{unsavedBackup&&<button className="rounded-md border px-4 py-3" onClick={()=>{setSettings(unsavedBackup.settings);setPoints(unsavedBackup.points);setUnsavedBackup(null);setCloudStatus('Your draft is restored. Review it, then save when ready.');}}>Restore my unsaved draft</button>}</div></section>:<section className="rounded-lg border border-emerald-200 bg-white p-4 print:hidden"><h2 className="font-semibold">Use this plan with your bakery team</h2><p>Open Bakery Management to sign in and save this plan to your shared bakery. Your current browser copy is kept.</p><button className="mt-3 rounded-md bg-emerald-800 px-4 py-3 font-semibold text-white" onClick={openBakery}>Open plan in Bakery Management</button></section>}
+
+        <fieldset disabled={CORE_MODE&&!cloudReady} className="contents"><QuickSetup
           settings={settings}
           onSettingsChange={updateSettings}
           onFitPlan={fitTwoFeedPlan}
@@ -376,7 +394,7 @@ export default function App() {
           setupError={setupError}
         />
 
-        <PlanSummary settings={settings} plan={plan} setupError={setupError} />
+        </fieldset><PlanSummary settings={settings} plan={plan} setupError={setupError} />
 
         {actionStatus && <p className="rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">{actionStatus}</p>}
 
